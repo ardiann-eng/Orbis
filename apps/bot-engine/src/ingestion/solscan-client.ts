@@ -47,9 +47,9 @@ export interface SolscanTokenMeta {
   price_change_24h: number | null;
 }
 
-/** Unified token metadata from Helius DAS + DexScreener (replaces SolscanTokenMeta for getTokenMeta) */
+/** Unified token metadata from Solscan + DexScreener (replaces legacy SolscanTokenMeta) */
 export interface TokenMetaResult {
-  // From Helius DAS getAsset
+  // From Solscan /token/meta
   name:        string | null;
   symbol:      string | null;
   imageUrl:    string | null;
@@ -187,51 +187,8 @@ function delay(ms: number) {
 
 // ─── Free API Helpers ────────────────────────────────────────────────────────
 
-/** Generic Helius JSON-RPC call */
-async function heliusRpc<T>(method: string, params: unknown[]): Promise<T> {
-  const apiKey = process.env.HELIUS_API_KEY;
-  if (!apiKey) throw new Error('HELIUS_API_KEY is not set');
-
-  const res = await fetch(`https://mainnet.helius-rpc.com/?api-key=${apiKey}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ jsonrpc: '2.0', id: 'orbis', method, params }),
-  });
-
-  if (!res.ok) {
-    const body = await res.text().catch(() => '');
-    throw new Error(`Helius RPC HTTP ${res.status}: ${body.slice(0, 200)}`);
-  }
-
-  const json = await res.json() as { result: T; error?: { message: string } };
-  if (json.error) throw new Error(`Helius RPC error (${method}): ${json.error.message}`);
-  return json.result;
-}
-
-/** Helius DAS getAsset — returns on-chain/off-chain metadata for a mint */
-async function fetchHeliusAsset(mint: string): Promise<any> {
-  const apiKey = process.env.HELIUS_API_KEY;
-  if (!apiKey) throw new Error('HELIUS_API_KEY is not set');
-
-  const res = await fetch(`https://mainnet.helius-rpc.com/?api-key=${apiKey}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      jsonrpc: '2.0', id: 'orbis',
-      method: 'getAsset',
-      params: { id: mint },
-    }),
-  });
-
-  if (!res.ok) {
-    const body = await res.text().catch(() => '');
-    throw new Error(`Helius getAsset HTTP ${res.status}: ${body.slice(0, 200)}`);
-  }
-
-  const json = await res.json() as { result: any; error?: { message: string } };
-  if (json.error) throw new Error(`Helius getAsset error: ${json.error.message}`);
-  return json.result;
-}
+// NOTE: Previously this file used free Helius DAS / RPC for token meta + holders.
+// Sesuai requirement terbaru, kita sekarang hanya pakai Solscan + DexScreener di bawah.
 
 /** DexScreener free endpoint for price/liquidity/volume/mcap */
 async function fetchDexScreenerMeta(mint: string): Promise<any> {
@@ -248,9 +205,8 @@ async function fetchDexScreenerMeta(mint: string): Promise<any> {
 export class SolscanClient {
 
   // ── 1. Token Metadata ───────────────────────────────────────────────────
-  // FREE: Helius DAS getAsset (name/symbol/image/socials/creator)
-  //     + DexScreener (price/mcap/liquidity/volume)
-  // Replaces the broken Solscan /token/meta (requires paid plan — 401)
+  // Solscan /token/meta (butuh SOLSCAN_API_KEY)
+  //   + DexScreener (price/mcap/liquidity/volume)
   static async getTokenMeta(mint: string): Promise<TokenMetaResult | null> {
     const cacheKey = `token:meta:${mint}`;
     try {
@@ -260,37 +216,37 @@ export class SolscanClient {
         return cached;
       }
 
-      // Fetch both sources in parallel; partial failure is OK
-      const [heliusSettled, dexSettled] = await Promise.allSettled([
-        fetchHeliusAsset(mint),
+      // Ambil metadata dari Solscan + market data dari DexScreener (partial failure OK)
+      const [solscanSettled, dexSettled] = await Promise.allSettled([
+        solscanFetch<SolscanTokenMeta>(`/token/meta?address=${mint}`),
         fetchDexScreenerMeta(mint),
       ]);
 
-      const helius = heliusSettled.status === 'fulfilled' ? heliusSettled.value : null;
-      const dex    = dexSettled.status   === 'fulfilled' ? dexSettled.value   : null;
+      const solscan = solscanSettled.status === 'fulfilled' ? solscanSettled.value : null;
+      const dex     = dexSettled.status    === 'fulfilled' ? dexSettled.value    : null;
 
-      if (heliusSettled.status === 'rejected') {
-        logger.warn({ mint, err: (heliusSettled.reason as any)?.message }, 'Helius getAsset failed (partial)');
+      if (solscanSettled.status === 'rejected') {
+        logger.warn({ mint, err: (solscanSettled.reason as any)?.message }, 'Solscan token/meta failed (partial)');
       }
       if (dexSettled.status === 'rejected') {
         logger.warn({ mint, err: (dexSettled.reason as any)?.message }, 'DexScreener meta failed (partial)');
       }
 
-      // Pick the best Solana pair from DexScreener
+      // Pilih pair Solana terbaik dari DexScreener
       const solanaPairs: any[] = (dex?.pairs ?? []).filter((p: any) => p.chainId === 'solana');
       const bestPair = solanaPairs.sort(
         (a: any, b: any) => (b.liquidity?.usd ?? 0) - (a.liquidity?.usd ?? 0)
       )[0] ?? null;
 
       const result: TokenMetaResult = {
-        // Helius DAS fields
-        name:        helius?.content?.metadata?.name        ?? null,
-        symbol:      helius?.content?.metadata?.symbol      ?? null,
-        imageUrl:    helius?.content?.files?.[0]?.uri       ?? null,
-        creator:     helius?.authorities?.[0]?.address      ?? null,
-        twitter:     helius?.content?.links?.twitter        ?? null,
-        telegram:    helius?.content?.links?.telegram       ?? null,
-        website:     helius?.content?.links?.website        ?? null,
+        // Solscan fields
+        name:        solscan?.name          ?? null,
+        symbol:      solscan?.symbol        ?? null,
+        imageUrl:    solscan?.icon          ?? null,
+        creator:     solscan?.creator       ?? null,
+        twitter:     null,
+        telegram:    null,
+        website:     null,
         // DexScreener fields
         priceUsd:       bestPair ? parseFloat(bestPair.priceUsd ?? '0') : null,
         mcap:           bestPair?.fdv                       ?? null,
@@ -301,7 +257,7 @@ export class SolscanClient {
       };
 
       await redis.set(cacheKey, result, { ex: TTL.tokenMeta });
-      logger.debug({ mint, symbol: result.symbol }, 'Token meta fetched via Helius+DexScreener');
+      logger.debug({ mint, symbol: result.symbol }, 'Token meta fetched via Solscan+DexScreener');
       return result;
 
     } catch (err: any) {
@@ -311,9 +267,8 @@ export class SolscanClient {
   }
 
   // ── 2. Token Holders ────────────────────────────────────────────────────
-  // FREE: Helius RPC getTokenLargestAccounts + getTokenSupply
-  // Replaces the broken Solscan /token/holders (requires paid plan — 401)
-  // Return shape is compatible with SolscanHoldersResponse so toHolderDistribution() still works.
+  // Solscan /token/holders (butuh SOLSCAN_API_KEY)
+  // Return shape kompatibel dengan SolscanHoldersResponse sehingga toHolderDistribution() tetap bekerja.
   static async getTokenHolders(
     mint: string,
     _page = 1,
@@ -327,37 +282,19 @@ export class SolscanClient {
         return cached;
       }
 
-      // Fetch top 20 accounts + total supply in parallel
-      const [accountsRes, supplyRes] = await Promise.all([
-        heliusRpc<{ value: Array<{ address: string; uiAmount: number | null; amount: string }> }>(
-          'getTokenLargestAccounts', [mint]
-        ),
-        heliusRpc<{ value: { uiAmount: number | null } }>(
-          'getTokenSupply', [mint]
-        ),
-      ]);
+      const data = await solscanFetch<SolscanHoldersResponse>(
+        `/token/holders?address=${mint}&page=1&page_size=${_pageSize}`
+      );
 
-      const totalSupply = supplyRes.value.uiAmount ?? 0;
-      const accounts   = accountsRes.value ?? [];
+      const items = data.items ?? [];
+      const normalized: SolscanHoldersResponse = {
+        total: data.total ?? items.length,
+        items,
+      };
 
-      const items: SolscanHolder[] = accounts.map((acc, index) => {
-        const uiAmount = acc.uiAmount ?? 0;
-        const pct = totalSupply > 0 ? uiAmount / totalSupply : 0;
-        return {
-          address:           acc.address,  // token account address
-          owner:             acc.address,  // Helius RPC doesn't give owner; use acc.address as proxy
-          amount:            acc.amount,
-          decimals:          0,            // not returned by getTokenLargestAccounts
-          rank:              index + 1,
-          percent_of_supply: pct,          // fraction 0–1
-        } satisfies SolscanHolder;
-      });
-
-      const data: SolscanHoldersResponse = { total: items.length, items };
-
-      await redis.set(cacheKey, data, { ex: TTL.tokenHolders });
-      logger.debug({ mint, total: data.total }, 'Token holders fetched via Helius RPC');
-      return data;
+      await redis.set(cacheKey, normalized, { ex: TTL.tokenHolders });
+      logger.debug({ mint, total: normalized.total }, 'Token holders fetched via Solscan');
+      return normalized;
 
     } catch (err: any) {
       logger.error({ mint, err: err.message }, 'getTokenHolders failed');

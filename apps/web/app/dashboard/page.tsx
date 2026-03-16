@@ -2,6 +2,7 @@
 
 import DashboardLayout from "../components/DashboardLayout";
 import { useApi } from "../hooks/useApi";
+import { useTradingMode } from "../hooks/useTradingMode";
 import {
   LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip, Dot,
 } from "recharts";
@@ -69,6 +70,7 @@ interface Signal {
 }
 
 export default function DashboardPage() {
+  const { mode, isDemo } = useTradingMode("default");
   const { data: status, loading: statusLoading } = useApi<BotStatus>(
     "/api/bot/status?userId=default",
     { isActive: false, openPositions: 0, logic1Enabled: false, logic2Enabled: false, logic3Enabled: false }
@@ -131,6 +133,32 @@ export default function DashboardPage() {
   return (
     <DashboardLayout>
       <div style={{ padding: "24px 32px", width: "100%", boxSizing: "border-box", overflowX: "hidden" }}>
+
+        {/* Demo mode banner */}
+        {isDemo && (
+          <div
+            className="card animate-fade-in"
+            style={{
+              marginBottom: "16px",
+              background: "rgba(245, 158, 11, 0.08)",
+              borderColor: "var(--amber-500)",
+              padding: "10px 14px",
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+            }}
+          >
+            <span
+              className="badge badge-amber"
+              style={{ fontSize: "0.7rem" }}
+            >
+              DEMO
+            </span>
+            <span style={{ fontSize: "0.8rem", color: "var(--text-secondary)" }}>
+              Mode Demo — semua transaksi di halaman ini adalah simulasi. Tidak ada SOL sungguhan yang digunakan.
+            </span>
+          </div>
+        )}
 
         {/* ===== STATUS BAR ===== */}
         <div

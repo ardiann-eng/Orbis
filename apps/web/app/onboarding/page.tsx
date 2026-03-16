@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useTradingMode } from "../hooks/useTradingMode";
 
 const STEPS = [
   "Disclaimer",
@@ -131,6 +132,7 @@ function Step2({ onNext }: { onNext: () => void }) {
   const [created, setCreated] = useState(false);
   const [creating, setCreating] = useState(false);
   const [publicKey, setPublicKey] = useState("");
+  const [exportablePrivateKey, setExportablePrivateKey] = useState<string | null>(null);
 
   const handleCreate = async () => {
     setCreating(true);
@@ -139,6 +141,10 @@ function Step2({ onNext }: { onNext: () => void }) {
       const data = await res.json();
       if (data.success && data.publicKey) {
         setPublicKey(data.publicKey);
+        if (Array.isArray(data.exportablePrivateKey)) {
+          // Satu-satunya tempat private key ditampilkan (sekali saja)
+          setExportablePrivateKey(JSON.stringify(data.exportablePrivateKey));
+        }
         setCreated(true);
       }
     } catch (err) {
@@ -148,8 +154,22 @@ function Step2({ onNext }: { onNext: () => void }) {
     }
   };
 
-  const copyToClipboard = () => {
-    navigator.clipboard.writeText(publicKey);
+  const copyAddressToClipboard = () => {
+    if (publicKey) {
+      navigator.clipboard.writeText(publicKey);
+    }
+  };
+
+  const copyPrivateKeyToClipboard = () => {
+    if (exportablePrivateKey) {
+      navigator.clipboard.writeText(exportablePrivateKey);
+    }
+  };
+
+  const handleNext = () => {
+    // Hapus private key dari state ketika user lanjut
+    setExportablePrivateKey(null);
+    onNext();
   };
 
   return (
@@ -184,7 +204,7 @@ function Step2({ onNext }: { onNext: () => void }) {
           <span>{created ? publicKey : "••••••••••••••••••"}</span>
           {created && (
             <button
-              onClick={copyToClipboard}
+              onClick={copyAddressToClipboard}
               style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-tertiary)' }}
               title="Copy to clipboard"
             >
@@ -193,6 +213,35 @@ function Step2({ onNext }: { onNext: () => void }) {
           )}
         </div>
       </div>
+
+      {created && exportablePrivateKey && (
+        <div className="card" style={{ marginBottom: "24px", borderColor: "var(--amber-500)", background: "rgba(245,158,11,0.08)" }}>
+          <h3 style={{ fontSize: "0.9rem", marginBottom: "8px", color: "var(--amber-400)" }}>
+            Simpan private key ini dengan aman (hanya muncul sekali)
+          </h3>
+          <p style={{ fontSize: "0.8rem", color: "var(--text-tertiary)", marginBottom: "12px" }}>
+            Ini adalah backup private key dompet bot kamu. Salin dan simpan di tempat yang aman. Setelah kamu lanjut ke langkah berikutnya, halaman ini tidak akan menampilkan private key lagi.
+          </p>
+          <div className="font-mono-num" style={{
+            padding: "10px 14px",
+            background: "var(--bg-primary)",
+            borderRadius: "var(--radius-md)",
+            border: "1px solid var(--border-primary)",
+            fontSize: "0.8rem",
+            color: "var(--text-primary)",
+            wordBreak: "break-all",
+            marginBottom: "8px",
+          }}>
+            {exportablePrivateKey}
+          </div>
+          <button
+            className="btn btn-secondary btn-sm"
+            onClick={copyPrivateKeyToClipboard}
+          >
+            Salin Private Key (JSON)
+          </button>
+        </div>
+      )}
 
       {!created ? (
         <button
@@ -217,9 +266,9 @@ function Step2({ onNext }: { onNext: () => void }) {
             Dompet berhasil dibuat dan terenkripsi
           </div>
           <p style={{ fontSize: "0.8125rem", color: "var(--text-tertiary)", marginBottom: "24px" }}>
-            Kunci dompet ini disimpan terenkripsi. Tidak ada yang bisa mengaksesnya selain kamu — termasuk kami.
+            Kunci dompet ini disimpan terenkripsi untuk bot, dan private key hanya ditampilkan sekali di atas untuk kamu backup.
           </p>
-          <button className="btn btn-primary" onClick={onNext} style={{ minWidth: "180px" }}>
+          <button className="btn btn-primary" onClick={handleNext} style={{ minWidth: "180px" }}>
             Lanjutkan
           </button>
         </div>
@@ -554,6 +603,7 @@ import { ApiKeyRevealModal } from "../components/ApiKeyRevealModal";
 
 export default function OnboardingPage() {
   const router = useRouter();
+  const { switchMode } = useTradingMode("default");
   const [step, setStep] = useState(0);
   const [checks, setChecks] = useState<[boolean, boolean]>([false, false]);
   const [balance, setBalance] = useState(1);
@@ -565,42 +615,20 @@ export default function OnboardingPage() {
   });
 
   const [activating, setActivating] = useState(false);
-  const [animationState, setAnimationState] = useState<'idle' | 'animating' | 'apikey' | 'done'>('idle');
-  const [generatedApiKey, setGeneratedApiKey] = useState("");
+  const [showModeModal, setShowModeModal] = useState(false);
+  const [pendingMode, setPendingMode] = useState<'DEMO' | 'REAL' | null>(null);
 
   const next = () => setStep((s) => Math.min(s + 1, 5));
 
   const handleActivate = async () => {
     setActivating(true);
     try {
-      // 1. Generate real API Key
-      const res = await fetch("/api/apikey?userId=default", { method: "POST" });
-      const data = await res.json();
-      if (data.success && data.apiKey) {
-        setGeneratedApiKey(data.apiKey);
-        // 2. Start Space Opening Cinematic Animation
-        setAnimationState('animating');
-      }
+      // Selesai wizard → tampilkan pilihan mode dulu
+      setShowModeModal(true);
     } catch (err) {
       console.error("Activation failed:", err);
-      // Fallback
-      setAnimationState('animating');
+      setShowModeModal(true);
     }
-  };
-
-  const handleAnimationComplete = () => {
-    // 3. After animation, show API Key one-time reveal modal
-    if (generatedApiKey) {
-      setAnimationState('apikey');
-    } else {
-      router.push("/dashboard");
-    }
-  };
-
-  const handleModalClose = () => {
-    // 4. Finally, go to dashboard
-    setAnimationState('done');
-    router.push("/dashboard");
   };
 
   return (
@@ -611,14 +639,6 @@ export default function OnboardingPage() {
       alignItems: "center",
       padding: "60px 24px",
     }}>
-      {/* Overlay Animations */}
-      {animationState === 'animating' && (
-        <SpaceOpeningAnimation onComplete={handleAnimationComplete} />
-      )}
-      {animationState === 'apikey' && generatedApiKey && (
-        <ApiKeyRevealModal apiKey={generatedApiKey} onClose={handleModalClose} />
-      )}
-
       {/* Logo */}
       <div style={{
         display: "flex",
@@ -653,6 +673,173 @@ export default function OnboardingPage() {
           />
         )}
       </div>
+
+      {/* Mode selection modal (Step baru setelah wizard) */}
+      {showModeModal && (
+        <>
+          <div
+            style={{
+              position: "fixed",
+              inset: 0,
+              background: "rgba(0,0,0,0.55)",
+              backdropFilter: "blur(4px)",
+              zIndex: 60,
+            }}
+          />
+          <div
+            className="card"
+            style={{
+              position: "fixed",
+              zIndex: 61,
+              maxWidth: 640,
+              width: "100%",
+              left: "50%",
+              top: "50%",
+              transform: "translate(-50%, -50%)",
+              padding: "28px 28px 24px",
+            }}
+          >
+            <h2 style={{ marginBottom: "8px" }}>Mau mulai dengan apa?</h2>
+            <p
+              style={{
+                fontSize: "0.9rem",
+                color: "var(--text-secondary)",
+                marginBottom: "20px",
+              }}
+            >
+              Pilih cara kamu mau mencoba ORBIS dulu. Kamu bisa ganti antara Demo dan Real Trading kapan saja dari halaman Pengaturan Bot.
+            </p>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+                gap: "16px",
+                marginBottom: "16px",
+              }}
+            >
+              {/* Demo mode card */}
+              <button
+                type="button"
+                onClick={async () => {
+                  setPendingMode("DEMO");
+                  await switchMode("DEMO");
+                  setShowModeModal(false);
+                  router.push("/dashboard");
+                }}
+                className="card"
+                style={{
+                  textAlign: "left",
+                  borderColor: "var(--amber-500)",
+                  background: "rgba(245, 158, 11, 0.05)",
+                  padding: "18px 18px 16px",
+                  cursor: "pointer",
+                }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    marginBottom: "10px",
+                  }}
+                >
+                  <div
+                    style={{
+                      fontSize: "0.95rem",
+                      fontWeight: 600,
+                    }}
+                  >
+                    Coba dulu tanpa risiko
+                  </div>
+                  <span className="badge badge-amber" style={{ fontSize: "0.7rem" }}>
+                    Gratis · Tidak perlu deposit
+                  </span>
+                </div>
+                <p
+                  style={{
+                    fontSize: "0.85rem",
+                    color: "var(--text-secondary)",
+                    marginBottom: "14px",
+                  }}
+                >
+                  Bot trading berjalan dengan uang virtual. Kamu bisa lihat bagaimana bot bekerja, sinyal apa yang muncul, dan berapa profit/loss — tanpa deposit SOL sungguhan.
+                </p>
+                <span
+                  className="btn btn-secondary btn-sm"
+                  style={{ width: "100%", justifyContent: "center" }}
+                >
+                  Pilih Demo
+                </span>
+              </button>
+
+              {/* Real trading card */}
+              <button
+                type="button"
+                onClick={async () => {
+                  setPendingMode("REAL");
+                  await switchMode("REAL");
+                  setShowModeModal(false);
+                  router.push("/dashboard");
+                }}
+                className="card"
+                style={{
+                  textAlign: "left",
+                  borderColor: "var(--emerald-500)",
+                  background: "rgba(16, 185, 129, 0.05)",
+                  padding: "18px 18px 16px",
+                  cursor: "pointer",
+                }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    marginBottom: "10px",
+                  }}
+                >
+                  <div
+                    style={{
+                      fontSize: "0.95rem",
+                      fontWeight: 600,
+                    }}
+                  >
+                    Mulai trading sungguhan
+                  </div>
+                  <span className="badge badge-emerald" style={{ fontSize: "0.7rem" }}>
+                    Butuh deposit SOL
+                  </span>
+                </div>
+                <p
+                  style={{
+                    fontSize: "0.85rem",
+                    color: "var(--text-secondary)",
+                    marginBottom: "14px",
+                  }}
+                >
+                  Bot menggunakan SOL yang sudah kamu deposit ke dompet bot. Semua transaksi terjadi di blockchain Solana secara nyata.
+                </p>
+                <span
+                  className="btn btn-primary btn-sm"
+                  style={{ width: "100%", justifyContent: "center" }}
+                >
+                  Mulai Real Trading
+                </span>
+              </button>
+            </div>
+            <p
+              style={{
+                fontSize: "0.75rem",
+                color: "var(--text-tertiary)",
+                textAlign: "center",
+                marginTop: "4px",
+              }}
+            >
+              Kamu bisa beralih antara Demo dan Real Trading kapan saja dari halaman Pengaturan Bot.
+            </p>
+          </div>
+        </>
+      )}
     </div>
   );
 }

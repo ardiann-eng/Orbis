@@ -4,6 +4,7 @@ import { BotEngine } from './engine';
 import { PumpPortalListener } from './ingestion/pump-portal';
 import { TelegramMonitor } from './ingestion/telegram-monitor';
 import { backfillNullTokens } from './ingestion/dexscreener-enricher';
+import { monitorDemoPositions } from './demo/demo-engine';
 import { logger } from './utils/logger';
 
 const USER_ID = process.env.BOT_USER_ID ?? 'default';
@@ -44,6 +45,13 @@ async function main() {
   await engine.start();
   pumpPortal.start();
   telegram.start();
+
+  // Demo monitor loop (every 30s) — only affects DEMO virtual positions
+  setInterval(() => {
+    monitorDemoPositions(USER_ID).catch((err) => {
+      logger.error({ err }, 'monitorDemoPositions failed');
+    });
+  }, 30_000);
 
   // Backfill MCap/Liquidity/Volume for tokens already in DB with NULL market data.
   // Runs non-blocking in background — does NOT delay startup.
