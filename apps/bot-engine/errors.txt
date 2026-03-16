@@ -1,0 +1,46 @@
+﻿src/engine/index.ts(2,79): error TS6059: File 'D:/Orbis/packages/shared-types/src/index.ts' is not under 'rootDir' 'D:/Orbis/apps/bot-engine/src'. 'rootDir' is expected to contain all source files.
+  The file is in the program because:
+    Imported via '@orbis/shared-types' from file 'D:/Orbis/apps/bot-engine/src/engine/index.ts'
+    Imported via '@orbis/shared-types' from file 'D:/Orbis/apps/bot-engine/src/engine/logic1-momentum.ts'
+    Imported via '@orbis/shared-types' from file 'D:/Orbis/apps/bot-engine/src/engine/logic2-volume.ts'
+    Imported via '@orbis/shared-types' from file 'D:/Orbis/apps/bot-engine/src/engine/logic3-telegram.ts'
+    Imported via '@orbis/shared-types' from file 'D:/Orbis/apps/bot-engine/src/scoring/scorer.ts'
+    Imported via '@orbis/shared-types' from file 'D:/Orbis/apps/bot-engine/src/scoring/scorer.ts'
+    Imported via '@orbis/shared-types' from file 'D:/Orbis/apps/bot-engine/src/scoring/filters.ts'
+    Imported via '@orbis/shared-types' from file 'D:/Orbis/apps/bot-engine/src/scoring/filters.ts'
+    Imported via '@orbis/shared-types' from file 'D:/Orbis/apps/bot-engine/src/scoring/confidence.ts'
+    Imported via '@orbis/shared-types' from file 'D:/Orbis/apps/bot-engine/src/execution/position-manager.ts'
+    Imported via '@orbis/shared-types' from file 'D:/Orbis/apps/bot-engine/src/execution/risk-manager.ts'
+    Imported via '@orbis/shared-types' from file 'D:/Orbis/apps/bot-engine/src/ingestion/helius-listener.ts'
+src/engine/logic3-telegram.ts(57,22): error TS2352: Conversion of type 'Row[]' to type 'ChannelRow[]' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Type 'Row' is missing the following properties from type 'ChannelRow': channel_id, channel_name, weight, mention_count
+src/execution/position-manager.ts(85,20): error TS2352: Conversion of type 'Row' to type '{ cnt: number; }' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Property 'cnt' is missing in type 'Row' but required in type '{ cnt: number; }'.
+src/execution/risk-manager.ts(86,42): error TS2352: Conversion of type 'Row' to type '{ total_loss: number; }' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Property 'total_loss' is missing in type 'Row' but required in type '{ total_loss: number; }'.
+src/execution/risk-manager.ts(94,56): error TS2352: Conversion of type 'Row' to type '{ max_exposure_sol: number; drawdown_limit_pct: number; }' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Type 'Row' is missing the following properties from type '{ max_exposure_sol: number; drawdown_limit_pct: number; }': max_exposure_sol, drawdown_limit_pct
+src/execution/trader.ts(76,15): error TS2339: Property 'swapTransaction' does not exist on type 'unknown'.
+src/execution/trader.ts(142,15): error TS2339: Property 'swapTransaction' does not exist on type 'unknown'.
+src/execution/trader.ts(172,13): error TS2352: Conversion of type 'Row' to type '{ trading_wallet: string; }' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Property 'trading_wallet' is missing in type 'Row' but required in type '{ trading_wallet: string; }'.
+src/execution/trader.ts(191,52): error TS2352: Conversion of type 'Row' to type '{ encrypted_keypair: string; encryption_iv: string; }' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Type 'Row' is missing the following properties from type '{ encrypted_keypair: string; encryption_iv: string; }': encrypted_keypair, encryption_iv
+src/ingestion/telegram-monitor.ts(76,13): error TS2352: Conversion of type 'Row[]' to type '{ channel_id: string; channel_name: string | null; weight: number; }[]' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Type 'Row' is missing the following properties from type '{ channel_id: string; channel_name: string | null; weight: number; }': channel_id, channel_name, weight
+src/scoring/scorer.ts(114,30): error TS2352: Conversion of type 'Row' to type '{ name: string; symbol: string; }' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Type 'Row' is missing the following properties from type '{ name: string; symbol: string; }': name, symbol
+src/scoring/scorer.ts(123,23): error TS2352: Conversion of type 'Row[]' to type '{ keyword: string; multiplier: number; }[]' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Type 'Row' is missing the following properties from type '{ keyword: string; multiplier: number; }': keyword, multiplier
+src/utils/redis-client.ts(14,95): error TS2345: Argument of type '{ ex?: number | undefined; } | undefined' is not assignable to parameter of type 'SetCommandOptions | undefined'.
+  Type '{ ex?: number | undefined; }' is not assignable to type 'SetCommandOptions | undefined'.
+    Type '{ ex?: number | undefined; }' is not assignable to type '({ get?: boolean | undefined; } & { ex: number; px?: undefined; exat?: undefined; pxat?: undefined; keepTtl?: undefined; } & { nx: true; xx?: undefined; }) | ({ get?: boolean | undefined; } & { ex: number; px?: undefined; exat?: undefined; pxat?: undefined; keepTtl?: undefined; } & { ...; }) | ... 15 more ... | ({ ....'.
+      Type '{ ex?: number | undefined; }' is not assignable to type '{ get?: boolean | undefined; } & { ex?: undefined; px?: undefined; exat?: undefined; pxat?: undefined; keepTtl?: undefined; } & { xx?: undefined; nx?: undefined; }'.
+        Type '{ ex?: number | undefined; }' is not assignable to type '{ ex?: undefined; px?: undefined; exat?: undefined; pxat?: undefined; keepTtl?: undefined; }'.
+          Types of property 'ex' are incompatible.
+            Type 'number | undefined' is not assignable to type 'undefined'.
+              Type 'number' is not assignable to type 'undefined'.
+../../packages/shared-types/src/index.ts(3,15): error TS6059: File 'D:/Orbis/packages/shared-types/src/token.ts' is not under 'rootDir' 'D:/Orbis/apps/bot-engine/src'. 'rootDir' is expected to contain all source files.
+../../packages/shared-types/src/index.ts(4,15): error TS6059: File 'D:/Orbis/packages/shared-types/src/signal.ts' is not under 'rootDir' 'D:/Orbis/apps/bot-engine/src'. 'rootDir' is expected to contain all source files.
+../../packages/shared-types/src/index.ts(5,15): error TS6059: File 'D:/Orbis/packages/shared-types/src/score.ts' is not under 'rootDir' 'D:/Orbis/apps/bot-engine/src'. 'rootDir' is expected to contain all source files.
+../../packages/shared-types/src/index.ts(6,15): error TS6059: File 'D:/Orbis/packages/shared-types/src/trade.ts' is not under 'rootDir' 'D:/Orbis/apps/bot-engine/src'. 'rootDir' is expected to contain all source files.
